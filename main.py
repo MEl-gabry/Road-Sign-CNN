@@ -5,9 +5,14 @@ import numpy as np
 import os
 from PIL import Image
 from tensorflow.keras.utils import to_categorical
+from keras.models import Sequential
+from keras.layers import Dense, Dropout, Conv2D, MaxPool2D, Flatten, InputLayer, BatchNormalization
+from sklearn.model_selection import train_test_split
 
 count = len(fnmatch.filter(os.listdir(os.path.join(os.path.dirname(__file__), 'images')), '*.*'))
 
+X = []
+y = []
 X_train = []
 X_test = []
 y_train = []
@@ -17,8 +22,8 @@ bounding_boxes = []
 
 categories = {}
 
-width = 200
-height = 200
+width = 300
+height = 300
 
 for i in range(count):
     im = Image.open(f"images/road{i}.png")
@@ -27,6 +32,9 @@ for i in range(count):
 
     tree = ET.parse(f"annotations/road{i}.xml")
     root = tree.getroot()
+    size = root.find("size")
+    im_width = int(size.find("width").text)
+    im_height = int(size.find("height").text)
     obj = root.find("object")
     category = obj.find("name").text
     bndbox = obj.find("bndbox")
@@ -35,19 +43,21 @@ for i in range(count):
     xmax = int(bndbox.find("xmax").text)
     ymax = int(bndbox.find("ymax").text)
 
-    bounding_boxes.append([xmin / width, ymin / height, xmax / width, ymax / height])
+    bounding_boxes.append([xmin / im_width, ymin / im_height, xmax / im_width, ymax / im_height])
 
     if categories.get(category) is None:
         categories[category] = len(categories)
 
     cat_index = categories[category]
 
-    if i < ceil(count / 2):
-        X_train.append(im_array)
-        y_train.append(cat_index)
-    else:
-        X_test.append(im_array)
-        y_test.append(cat_index)
+    # if i < ceil(count / 2):
+    X.append(im_array)
+    y.append(cat_index)
+    # else:
+    #     X_test.append(im_array)
+    #     y_test.append(cat_index)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=0)
 
 X_train = np.array(X_train)
 X_test = np.array(X_test)
@@ -57,3 +67,37 @@ X_test = X_test / 255
 
 Y_train = to_categorical(y_train, len(categories))
 Y_test = to_categorical(y_test, len(categories))
+
+# building a linear stack of layers with the sequential model
+model = Sequential()
+
+# convolutional layer
+model.add(Conv2D(50, kernel_size=(3,3), strides=(1,1), padding='same', activation='relu', input_shape=(width, height, 4)))
+# add: max pool layer
+
+# convolutional layer
+model.add(Conv2D(76, kernel_size=(3,3), strides=(1,1), padding='same', activation='relu'))
+model.add(MaxPool2D(pool_size=(2,2)))
+# add: batch normalization
+model.add(Dropout(0.2))
+
+model.add(Conv2D(126, kernel_size=(3,3), strides=(1,1), padding='same', activation='relu'))
+model.add(MaxPool2D(pool_size=(2,2)))
+model.add(Dropout(0.2))
+
+# flatten output of conv
+model.add(Flatten())
+
+# hidden layer
+model.add(Dense(400, activation='relu'))
+model.add(Dropout(0.2))
+model.add(Dense(250, activation='relu'))
+model.add(Dropout(0.3))
+# output layer
+model.add(Dense(4, activation='softmax'))
+
+# compiling the sequential model
+model.compile(loss='categorical_crossentropy', metrics=['accuracy'], optimizer='adam')
+
+# training the model for 10 epochs
+model.fit(X_train, Y_train, batch_size=64, epochs=20, validation_data=(X_test, Y_test))
