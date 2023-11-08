@@ -22,8 +22,8 @@ bounding_boxes = []
 
 categories = {}
 
-width = 300
-height = 300
+width = 75
+height = 75
 
 for i in range(count):
     im = Image.open(f"images/road{i}.png")
@@ -50,14 +50,10 @@ for i in range(count):
 
     cat_index = categories[category]
 
-    # if i < ceil(count / 2):
     X.append(im_array)
     y.append(cat_index)
-    # else:
-    #     X_test.append(im_array)
-    #     y_test.append(cat_index)
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=0)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
 
 X_train = np.array(X_train)
 X_test = np.array(X_test)
@@ -74,14 +70,16 @@ model = Sequential()
 # convolutional layer
 model.add(Conv2D(50, kernel_size=(3,3), strides=(1,1), padding='same', activation='relu', input_shape=(width, height, 4)))
 # add: max pool layer
+model.add(MaxPool2D(pool_size=(2,2)))
 
 # convolutional layer
-model.add(Conv2D(76, kernel_size=(3,3), strides=(1,1), padding='same', activation='relu'))
+model.add(Conv2D(75, kernel_size=(3,3), strides=(1,1), padding='same', activation='relu'))
 model.add(MaxPool2D(pool_size=(2,2)))
 # add: batch normalization
+model.add(BatchNormalization())
 model.add(Dropout(0.2))
 
-model.add(Conv2D(126, kernel_size=(3,3), strides=(1,1), padding='same', activation='relu'))
+model.add(Conv2D(125, kernel_size=(3,3), strides=(1,1), padding='same', activation='relu'))
 model.add(MaxPool2D(pool_size=(2,2)))
 model.add(Dropout(0.2))
 
@@ -100,4 +98,4 @@ model.add(Dense(4, activation='softmax'))
 model.compile(loss='categorical_crossentropy', metrics=['accuracy'], optimizer='adam')
 
 # training the model for 10 epochs
-model.fit(X_train, Y_train, batch_size=64, epochs=20, validation_data=(X_test, Y_test))
+model.fit(X_train, Y_train, batch_size=128, epochs=20, validation_data=(X_test, Y_test))
